@@ -84,3 +84,110 @@ data.tail()
 # 画出苹果公司的股票价格、两条 SMA 线以及交易信号
 ax = data.plot(secondary_y='Position', figsize=(10, 6))
 ax.get_legend().set_bbox_to_anchor((0.25, 0.85))  # 调整图例的位置
+#####################################################################################################################################################################################
+基于简单移动平均数（SMA）的交易策略设置为自动化执行
+1. 选择交易平台
+Interactive Brokers (IBKR)：支持 Python API，适合专业交易者。
+Alpaca：免费提供 API，适合初学者。
+QuantConnect：基于云的量化交易平台，支持 Python。
+Robinhood（通过第三方库）：适合小额交易。
+
+这里以 Alpaca 为例，因为它对初学者友好且免费
+
+2. 安装必要的 Python 库
+你需要安装以下库：
+alpaca-trade-api：用于与 Alpaca 交易平台交互。
+pandas 和 numpy：用于数据处理。
+schedule 或 time：用于定时执行策略。
+
+pip install alpaca-trade-api pandas numpy schedule
+
+3.编写自动化交易代码
+import alpaca_trade_api as tradeapi
+import pandas as pd
+import numpy as np
+import time
+
+# 1. 设置 Alpaca API 密钥
+api_key = '你的API_KEY'
+api_secret = '你的API_SECRET'
+base_url = 'https://paper-api.alpaca.markets'  # 使用模拟交易环境
+
+# 初始化 Alpaca API
+api = tradeapi.REST(api_key, api_secret, base_url, api_version='v2')
+
+# 2. 定义交易参数
+symbol = 'AAPL'  # 交易标的
+short_window = 42  # 短期 SMA 窗口
+long_window = 252  # 长期 SMA 窗口
+
+# 3. 获取历史数据
+def get_historical_data(symbol, days):
+    # 获取过去 days 天的股票数据
+    barset = api.get_barset(symbol, 'day', limit=days)
+    bars = barset[symbol]
+    data = pd.DataFrame({
+        'close': [bar.c for bar in bars]
+    }, index=[bar.t for bar in bars])
+    return data
+
+# 4. 计算 SMA
+def calculate_sma(data, short_window, long_window):
+    data['SMA1'] = data['close'].rolling(window=short_window).mean()  # 短期 SMA
+    data['SMA2'] = data['close'].rolling(window=long_window).mean()  # 长期 SMA
+    data.dropna(inplace=True)  # 删除缺失值
+    return data
+
+# 5. 生成交易信号
+def generate_signal(data):
+    # 如果短期 SMA > 长期 SMA，买入（1）；否则卖出（-1）
+    data['Position'] = np.where(data['SMA1'] > data['SMA2'], 1, -1)
+    return data['Position'].iloc[-1]  # 返回最新的信号
+
+# 6. 执行交易
+def execute_trade(symbol, signal):
+    # 获取当前持仓
+    position = api.get_position(symbol) if api.get_position(symbol) else None
+    
+    if signal == 1:  # 买入信号
+        if not position or position.side == 'short':  # 如果没有持仓或当前是空头
+            api.submit_order(
+                symbol=symbol,
+                qty=1,  # 买入 1 股
+                side='buy',
+                type='market',
+                time_in_force='gtc'  # 订单一直有效，直到取消
+            )
+            print(f"买入 {symbol}")
+    elif signal == -1:  # 卖出信号
+        if position and position.side == 'long':  # 如果当前是多头
+            api.submit_order(
+                symbol=symbol,
+                qty=1,  # 卖出 1 股
+                side='sell',
+                type='market',
+                time_in_force='gtc'
+            )
+            print(f"卖出 {symbol}")
+
+# 7. 主循环
+def main():
+    while True:
+        # 获取历史数据
+        data = get_historical_data(symbol, long_window + 1)
+        
+        # 计算 SMA 和交易信号
+        data = calculate_sma(data, short_window, long_window)
+        signal = generate_signal(data)
+        
+        # 执行交易
+        execute_trade(symbol, signal)
+        
+        # 每隔 1 小时运行一次
+        time.sleep(3600)
+
+# 运行主程序
+if __name__ == '__main__':
+    main()
+
+
