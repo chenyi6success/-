@@ -54,12 +54,12 @@ print(data.head())
 一旦获取了市场数据，系统需要运行交易算法，生成买卖信号。
 
 ✅ 交易策略的核心组成
-信号生成（Signal Generation）：
+1.信号生成（Signal Generation）：
 例如均线交叉（10 日均线上穿 50 日均线买入）。
-仓位管理（Position Sizing）：
+2.仓位管理（Position Sizing）：
 计算买入多少股（如最多 10% 账户资金）。
-风险控制（Risk Management）：
-设置止损（-5% 卖出），防止亏损过大。
+3.风险控制（Risk Management）：
+4.设置止损（-5% 卖出），防止亏损过大。
 📌 示例：用 Python 计算均线交叉信号
 
 python
